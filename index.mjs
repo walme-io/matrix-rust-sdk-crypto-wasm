@@ -50,26 +50,12 @@ let modPromise = null;
  * @returns {Promise<void>}
  */
 async function loadModuleAsync() {
-    let mod;
-    if (typeof WebAssembly.compileStreaming === "function") {
-        mod = await WebAssembly.compileStreaming(fetch(moduleUrl));
-    } else {
-        // Fallback to fetch and compile
-        const response = await fetch(moduleUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch wasm module: ${moduleUrl}`);
-        }
-        const bytes = await response.arrayBuffer();
-        mod = await WebAssembly.compile(bytes);
-    }
-
-    /** @type {{exports: typeof import("./pkg/matrix_sdk_crypto_wasm_bg.wasm.d")}} */
-    // @ts-expect-error: Typescript doesn't know what the instance exports exactly
-    const instance = new WebAssembly.Instance(mod, {
+    const instantiatedSource = await WebAssembly.instantiateStreaming(fetch(moduleUrl), {
         // @ts-expect-error: The bindings don't exactly match the 'ExportValue' type
         "./matrix_sdk_crypto_wasm_bg.js": bindings,
     });
 
+    const instance = instantiatedSource.instance;
     bindings.__wbg_set_wasm(instance.exports);
     instance.exports.__wbindgen_start();
 }
